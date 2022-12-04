@@ -11,4 +11,4 @@ Repo manager lets you auto setup docker
 ## Dependencies Planned for support
 ### NPM
 ### Python
-### Maven# repo-manager
+### Maven

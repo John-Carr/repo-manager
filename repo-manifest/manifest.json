@@ -1,0 +1,13 @@
+{
+    "test": {
+        "type": "git",
+        "uri": "",
+        "version": ""
+    },
+    "test_raw": {
+        "type": "raw",
+        "uri": "",
+        "file": "",
+        "version": ""
+    }
+}
