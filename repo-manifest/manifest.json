@@ -1,7 +1,7 @@
 {
     "test": {
         "type": "git",
-        "uri": "",
+        "uri": "https://github.com/John-Carr/SolarGatorsBSP_STM",
         "version": ""
     },
     "test_raw": {

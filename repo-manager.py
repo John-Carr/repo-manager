@@ -59,10 +59,10 @@ def fetchDependcies(dependencies):
     logging.debug('Fetching dependencies')
     logging.debug(dependencies)
     for dep in dependencies:
-        logging.debug(dep)
+        logging.debug('Dependency name %s ' % dep)
         dep_info = dependencies[dep]
         type = dep_info['type']
-        logging.debug(type)
+        logging.debug('Dependency type: %s' % type)
         Fetcher[type](dep_info)
 
 def fetchRaw(dep):
@@ -72,16 +72,32 @@ def fetchGithub(dep):
     logging.debug('Fetching github {}'.format(dep))
     repo = dep['uri']
     commit = dep['version']
-    destination = dep['dest']
+    destination = dep['dest'] if 'dest' in dep else repo.split('/')[-1]
     prev_dir = os.getcwd()
+    # TODO we need to check and handle failure conditions and handle accordingly
+    # TODO we should replace the os.system calls with subprocess.check_call
     # Clone the repository
-    os.system("git clone --recursive {} {}".format(repo, destination))
+    ret = os.system("git clone --recursive {} {}".format(repo, destination))
+    if ret != 0:
+        logging.info("Failed to clone git repository exit value {}".format(ret))
+        exit(ret)
     # Change the directory to the newly cloned repo
-    os.chdir(destination)
+    ret = os.chdir(destination)
+    if ret != 0:
+        logging.info("Failed to change to clone repo directory {}".format(ret))
+        exit(ret)
     # Checkout the commit
-    os.system("git checkout {}".format(commit))
+    ret = os.system("git checkout {}".format(commit))
+    if ret != 0:
+        logging.info("Failed to checkout version {} exit value {}"
+            .format(commit, ret))
+        exit(ret)
     # Move to our own branch
     os.system("git checkout -b repo-manager")
+    if ret != 0:
+        logging.info("Failed to create repo-manager branch exit value {}"
+            .format(ret))
+        exit(ret)
     # Go back to the directory we were at
     os.chdir(prev_dir)
 
