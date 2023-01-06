@@ -6,8 +6,7 @@
     },
     "test_raw": {
         "type": "raw",
-        "uri": "",
-        "file": "",
+        "uri": "https://raw.githubusercontent.com/John-Carr/OpenTelemetry/main/package-lock.json",
         "version": ""
     }
 }

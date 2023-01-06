@@ -3,6 +3,8 @@ import os, sys
 from stat import S_ISDIR, S_ISREG
 import json
 import logging
+import subprocess
+import requests
 
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 
@@ -63,45 +65,100 @@ def fetchDependcies(dependencies):
         dep_info = dependencies[dep]
         type = dep_info['type']
         logging.debug('Dependency type: %s' % type)
-        Fetcher[type](dep_info)
+        Fetcher[type](dep, dep_info)
 
-def fetchRaw(dep):
-    logging.debug('Fetching raw dependency {}'.format(dep))
-
-def fetchGithub(dep):
-    logging.debug('Fetching github {}'.format(dep))
-    repo = dep['uri']
-    commit = dep['version']
-    destination = dep['dest'] if 'dest' in dep else repo.split('/')[-1]
+def fetchRaw(name, dep):
+    logging.info('Fetching raw dependency {}'.format(name))
+    # Get information needed to pull dependency
+    url = dep['uri']
+    file = dep['file'] if 'file' in dep else url.split('/')[-1]
+    version = dep['version'] if 'version' in dep else ''
+    destination = dep['dest'] if 'dest' in dep else os.getcwd()
+    # Stash our current directory
     prev_dir = os.getcwd()
-    # TODO we need to check and handle failure conditions and handle accordingly
-    # TODO we should replace the os.system calls with subprocess.check_call
+    # Check to see if we have already cloned this object
+    # Get the path (strip last / if it exists)
+    os.path.normpath(destination)
+    try:
+        os.chdir(destination)
+    except FileNotFoundError as e:
+        logging.error("{}:Cannot create directory. Error: {}".format("fetchRaw", e))
+
+    if os.path.exists(file):
+        logging.debug("File already exists at {}, skipping fetch.".format(destination))
+        return
+    else:
+        logging.debug("File {} does not exist, fetching.".format(file))
+    
+    # try to get the object
+    try:
+        response = requests.get(url)
+    except Exception as e:
+        print(e)
+
+    # Get the file name if its not given in the manifest
+    file = url.split('/')[-1] if not file else file
+    # try to write object
+    try:
+        logging.debug("Creating file at `{}/{}".format(destination, file))
+        open(destination + '/' + file, 'wb').write(response.content)
+    except Exception as e:
+        print(e)
+
+
+def fetchGithub(name, dep):
+    logging.info('Fetching github dependency {}'.format(name))
+    # Get information needed to pull dependency
+    repo = dep['uri']
+    commit = dep['version'] if 'version' in dep else 'HEAD'
+    commit = commit if commit else 'HEAD'
+    destination = dep['dest'] if 'dest' in dep else repo.split('/')[-1]
+    # Stash our current directory
+    prev_dir = os.getcwd()
+    logging.debug("Saving dir as {}".format(prev_dir))
+
+    # Check to see if we have already cloned this repository
+    try:
+        os.chdir(destination)
+    except FileNotFoundError as e:
+        # This means we should continue and clone so just continue
+        pass
+    else:
+        logging.info("{}: Directory already exists skipping clone".format(name))
+        os.chdir(prev_dir)
+        return
+
     # Clone the repository
-    ret = os.system("git clone --recursive {} {}".format(repo, destination))
-    if ret != 0:
-        logging.info("Failed to clone git repository exit value {}".format(ret))
-        exit(ret)
+    try:
+        subprocess.check_call(["git", "clone", "--recursive", repo, destination],
+                                    stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        print("Failed to clone {}".format(repo))
+        exit(1)
+        
     # Change the directory to the newly cloned repo
-    ret = os.chdir(destination)
-    if ret != 0:
-        logging.info("Failed to change to clone repo directory {}".format(ret))
-        exit(ret)
+    os.chdir(destination)
+
     # Checkout the commit
-    ret = os.system("git checkout {}".format(commit))
-    if ret != 0:
-        logging.info("Failed to checkout version {} exit value {}"
-            .format(commit, ret))
-        exit(ret)
+    try:
+        subprocess.check_call(["git", "checkout", commit],
+                                    stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+        logging.info("Failed to checkout version {}"
+            .format(commit))
+        exit(1)
+        
     # Move to our own branch
-    os.system("git checkout -b repo-manager")
-    if ret != 0:
-        logging.info("Failed to create repo-manager branch exit value {}"
-            .format(ret))
-        exit(ret)
+    try:
+        subprocess.check_call(["git", "checkout", "-b", "repo-manager"])
+    except subprocess.CalledProcessError as e:
+        logging.info("Failed to create repo-manager branch exit value")
+        exit(1)
     # Go back to the directory we were at
     os.chdir(prev_dir)
+    logging.debug("Left func at {}".format(os.curdir))
 
-def fetchDocker(dep):
+def fetchDocker(name, dep):
     logging.debug('Fetching docker {}'.format(dep))
 
 Fetcher = {
